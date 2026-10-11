@@ -2,6 +2,8 @@ plugins {
     application
     java
     jacoco
+    checkstyle
+    id("org.springframework.boot")
 }
 
 java {
@@ -15,11 +17,31 @@ application {
 }
 
 dependencies {
-    implementation("com.google.inject:guice:7.0.0")
+    implementation(platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES))
+    implementation("org.springframework.boot:spring-boot-starter")
 
-    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    // Keep the same JUnit 5 version as the course's practice modules.
+    testImplementation(enforcedPlatform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+jacoco {
+    toolVersion = "0.8.14"
+}
+
+checkstyle {
+    toolVersion = "10.24.0"
+    configFile = file("config/checkstyle/checkstyle.xml")
+    isIgnoreFailures = false
+    maxWarnings = 0
+}
+
+tasks.withType<Checkstyle>().configureEach {
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+    }
 }
 
 tasks.test {
@@ -33,4 +55,20 @@ tasks.jacocoTestReport {
         html.required.set(true)
         xml.required.set(true)
     }
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.test)
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                minimum = "0.60".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
 }

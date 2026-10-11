@@ -1,6 +1,5 @@
 package ru.hse.vyshkat.service;
 
-import com.google.inject.Inject;
 import java.util.List;
 import java.util.Objects;
 import ru.hse.vyshkat.model.EnergyConsumer;
@@ -11,7 +10,6 @@ import ru.hse.vyshkat.model.Vehicle;
 public final class FleetReportService {
     private final Fleet fleet;
 
-    @Inject
     public FleetReportService(Fleet fleet) {
         this.fleet = Objects.requireNonNull(fleet, "fleet");
     }

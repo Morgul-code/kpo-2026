@@ -4,15 +4,23 @@
 
 ## Запуск
 
-Требуются **JDK 25** и доступ к Maven Central (для первой загрузки зависимостей). Из корня `kpo-2026`:
+Требуются **JDK 25** и доступ к Maven Central / Gradle Plugin Portal (для первой загрузки зависимостей). Используются Spring Boot 4.1.1, Spring DI, Checkstyle 10.24.0, JUnit 5 и JaCoCo 0.8.14. Из корня `kpo-2026`:
 
 ```bash
-./gradlew :modules:homework-1:run
-./gradlew :modules:homework-1:test
-./gradlew :modules:homework-1:jacocoTestReport
+./gradlew :modules:homework-1:bootRun
+./gradlew :modules:homework-1:check
+./gradlew :modules:homework-1:bootJar
 ```
 
+Также поддерживается прежняя команда `./gradlew :modules:homework-1:run`. Исполняемый Spring Boot JAR находится в `modules/homework-1/build/libs/`; его можно запустить через `java -jar <путь-к-jar>`.
+
+`check` выполняет тесты, Checkstyle для `src/main/java` и `src/test/java` и проверку покрытия строк не ниже **60%**. Нарушения стиля или недостаточное покрытие приводят к ошибке сборки.
+
+Отчёты Checkstyle: `modules/homework-1/build/reports/checkstyle/main.html` и `test.html`. Правила находятся в `config/checkstyle/checkstyle.xml` внутри модуля: именование, импорты, отступы, скобки, пробелы и длина строк до 120 символов. Это правила проекта; отдельный конфиг преподавателя не предоставлен.
+
 Отчёт JaCoCo: `modules/homework-1/build/reports/jacoco/test/html/index.html`.
+
+`Main` запускает Spring Boot с `WebApplicationType.NONE`. `ApplicationConfiguration` создаёт singleton-бины `Fleet`, `ServiceCenter`, сервисов и `ConsoleScenario`. Последний реализует `CommandLineRunner`: Spring запускает демонстрацию после создания контекста. После неё `Main` закрывает контекст.
 
 Консольный сценарий не требует ввода: показывает успешную и отклонённую приёмку, количество объектов, расход энергии, подходящий новичкам транспорт, инвентарные номера и отказ при дубликате.
 
@@ -30,23 +38,36 @@
 - **O (Open/Closed):** новый класс транспорта расширяет `Vehicle`, а для электрического транспорта также реализует `EnergyConsumer`, без изменения алгоритмов отчётности и учёта.
 - **L (Liskov Substitution):** `Bicycle`, `Scooter`, `ElectricBicycle` используются везде как `Vehicle` с одинаковыми гарантиями по инвентарному номеру и показателям.
 - **I (Interface Segregation) — наиболее явно:** `InventoryItem` и `EnergyConsumer` разделены; шлем и обычный велосипед не обязаны предоставлять несуществующий расход электроэнергии.
-- **D (Dependency Inversion):** `FleetService` принимает `ServiceCenter` через конструктор, а `ApplicationModule` связывает интерфейс с `ConditionBasedServiceCenter`.
+- **D (Dependency Inversion):** `FleetService` принимает `ServiceCenter` через конструктор, а `ApplicationConfiguration` связывает интерфейс с `ConditionBasedServiceCenter` через Spring `@Bean`. Зависимости передаются параметрами bean-методов и конструкторами; доменные классы и сервисы не зависят от Spring.
 
 **Сознательное ограничение:** `FleetReportService` прямо зависит от конкретного `Fleet`, а не от дополнительного интерфейса репозитория. В приложении единственный способ хранения (память), альтернатив нет; ещё один контракт пока только усложнил бы проект. При добавлении базы данных эту границу стоит пересмотреть.
 
 ### Расширяемость
 
-- **Новый вид транспорта:** добавить подкласс `Vehicle` и при необходимости `EnergyConsumer`; `FleetService` и отчёты менять не нужно. Для его показа в консольном примере потребуется создать экземпляр в `Main`.
+- **Новый вид транспорта:** добавить подкласс `Vehicle` и при необходимости `EnergyConsumer`; `FleetService` и отчёты менять не нужно. Для его показа в консольном примере потребуется создать экземпляр в `ConsoleScenario`.
 - **Сотрудники:** не включаются в баланс по условию; нужна отдельная модель и сервис сотрудников, текущие правила не изменятся.
 - **Склад запчастей:** потребуется новый учёт складских остатков. Можно переиспользовать `InventoryItem` лишь для индивидуально инвентаризируемых предметов; количественные остатки потребуют отдельной модели.
 
 ### Юнит-тесты и DI
 
-- `FleetServiceTest.rejectedVehicleNeverAppearsInFleet` и `acceptedVehicleAppearsInFleet` подменяют техосмотр через Guice: в тестовом модуле `ServiceCenter` привязывается к lambda-fake (`vehicle -> false` или `true`).
+- `FleetServiceTest.rejectedVehicleNeverAppearsInFleet` и `acceptedVehicleAppearsInFleet` подменяют техосмотр через Spring: helper `testContext` регистрирует lambda-fake (`vehicle -> false` или `true`) как primary-бин `ServiceCenter`, затем загружает production-конфигурацию. Spring внедряет fake в `FleetService`. Каждый тест создаёт и закрывает свой контекст; проверяется независимость парков между контекстами. Результат fake намеренно противоположен production-правилу, чтобы тест выявлял неверную подмену.
 - `DomainValidationTest.inspectionUsesConditionNotBeginnerEase` проверяет правило техосмотра, независимо от удобства для новичка.
 - `FleetReportServiceTest.beginnerThresholdIsInclusiveAndOnlyVehiclesAppear` проверяет порог **включительно 6**.
+- `ApplicationTest.springBootRunsConsoleScenarioWithProductionDependencies` запускает настоящий Spring Boot-контекст с production-бинами и проверяет результат сценария: 3 транспортных средства, 5 инвентарных объектов, 2.9 кВт·ч и 2 устройства для новичков.
 - Дополнительно проверяются суммарная энергия, пустой парк, дубли номеров, некорректные значения и инвентаризация.
+
+## Проверка реализации
+
+Проверено 11 октября 2026 года на JDK 25 (Eclipse Temurin 25.0.4.1) и Gradle 9.2.0:
+
+- `:modules:homework-1:check` и `:modules:homework-1:bootJar` — успешно.
+- 13 тестов, без ошибок и пропусков.
+- Покрытие JaCoCo по всему модулю, без исключения классов: строки **120/128 (93.75%)**, ветви **31/36 (86.11%)**.
+- `checkstyleMain` и `checkstyleTest` — 0 нарушений.
+- `:modules:homework-1:bootRun`, `:modules:homework-1:run` и запуск исполняемого JAR через `java -jar` — успешно; сценарий завершается самостоятельно.
+
+Эти проверки выполнены ИИ-помощником и не являются самостоятельными доработками автора.
 
 ## Роль ИИ и самостоятельная доработка
 
-ИИ использовался для проектирования начальной структуры классов, написания черновика реализации, тестов и README. Автор должен самостоятельно проверить работу сборки, разобраться в обработке приёмки и отчётов, выполнить доработки и дополнить этот раздел **реальным списком сделанных лично изменений** до сдачи. Нельзя объявлять исправления и тестовые прогоны выполненными, пока они не выполнены.
+ИИ использовался для проектирования начальной структуры классов, написания реализации, тестов и README, а затем для замены Guice на Spring Boot / Spring DI и подключения Checkstyle по уточнённым требованиям преподавателя. Автор должен самостоятельно проверить работу сборки, разобраться в обработке приёмки и отчётов, выполнить доработки и дополнить этот раздел **реальным списком сделанных лично изменений** до сдачи. Нельзя объявлять исправления и тестовые прогоны выполненными, пока они не выполнены.
