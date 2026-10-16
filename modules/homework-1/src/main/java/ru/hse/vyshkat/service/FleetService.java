@@ -16,7 +16,9 @@ public final class FleetService {
 
     public boolean registerVehicle(Vehicle vehicle) {
         Objects.requireNonNull(vehicle, "vehicle");
-        if (!serviceCenter.inspect(vehicle)) {
+        // Сначала проверяем технику, потом добавляем на баланс.
+        boolean proshelTehosmotr = serviceCenter.inspect(vehicle);
+        if (!proshelTehosmotr) {
             return false;
         }
         fleet.add(vehicle);

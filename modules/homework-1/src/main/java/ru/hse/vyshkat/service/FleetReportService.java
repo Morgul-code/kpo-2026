@@ -1,5 +1,6 @@
 package ru.hse.vyshkat.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import ru.hse.vyshkat.model.EnergyConsumer;
@@ -23,17 +24,23 @@ public final class FleetReportService {
     }
 
     public double totalDailyEnergyKwh() {
-        return fleet.allItems().stream()
-                .filter(EnergyConsumer.class::isInstance)
-                .map(EnergyConsumer.class::cast)
-                .mapToDouble(EnergyConsumer::dailyEnergyKwh)
-                .sum();
+        double summaKwh = 0;
+        for (InventoryItem item : fleet.allItems()) {
+            if (item instanceof EnergyConsumer consumer) {
+                summaKwh += consumer.dailyEnergyKwh();
+            }
+        }
+        return summaKwh;
     }
 
     public List<Vehicle> beginnerFriendlyVehicles() {
-        return fleet.vehicles().stream()
-                .filter(vehicle -> vehicle.beginnerEase() >= 6)
-                .toList();
+        List<Vehicle> dlyaNovichkov = new ArrayList<>();
+        for (Vehicle vehicle : fleet.vehicles()) {
+            if (vehicle.beginnerEase() >= 6) {
+                dlyaNovichkov.add(vehicle);
+            }
+        }
+        return List.copyOf(dlyaNovichkov);
     }
 
     public List<InventoryItem> inventory() {

@@ -39,13 +39,16 @@ public final class ConsoleScenario implements CommandLineRunner {
         System.out.printf("Энергия за сутки: %.2f кВт·ч%n", reports.totalDailyEnergyKwh());
 
         System.out.println("Подходят новичкам:");
-        reports.beginnerFriendlyVehicles().forEach(vehicle ->
-                System.out.println("  " + vehicle.name() + " [" + vehicle.inventoryNumber() + "]"));
+        for (var vehicle : reports.beginnerFriendlyVehicles()) {
+            System.out.println("  " + vehicle.name() + " [" + vehicle.inventoryNumber() + "]");
+        }
 
         System.out.println("Весь инвентарь:");
-        reports.inventory().forEach(item ->
-                System.out.println("  " + item.name() + " [" + item.inventoryNumber() + "]"));
+        for (var item : reports.inventory()) {
+            System.out.println("  " + item.name() + " [" + item.inventoryNumber() + "]");
+        }
 
+        // Проверим заодно, что второй раз тот же номер добавить не получится.
         try {
             registration.registerEquipment(new Helmet("E-001"));
         } catch (IllegalArgumentException exception) {
